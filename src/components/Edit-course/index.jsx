@@ -23,6 +23,7 @@ import {
     Select,
     FormControl,
     InputLabel,
+    LinearProgress
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -58,6 +59,7 @@ const CourseDetail = () => {
     const [options, setOptions] = useState(['', '', '', '']);
     const [correctAnswer, setCorrectAnswer] = useState('');
     const [expandedQuiz, setExpandedQuiz] = useState(null);
+    const [progress, setProgress] = useState(0);
 
     useEffect(() => {
         fetchCourse();
@@ -105,11 +107,20 @@ const CourseDetail = () => {
         formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_PRESET);
 
         try {
-            const response = await axios.post(import.meta.env.VITE_CLOUDINARY_URL, formData);
-            const fileUrl = response.data.secure_url;
-            await addFileToSection(selectedSectionId, fileUrl);
+            const response = await axios.post(import.meta.env.VITE_CLOUDINARY_URL, formData, {
+                onUploadProgress: (progressEvent) => {
+                    const { loaded, total } = progressEvent;
+                    const uploadProgress = Math.round((loaded * 100) / total);
+                    setProgress(uploadProgress);
+                }
+            });
+            await addFileToSection(selectedSectionId, response.data.secure_url);
+            setOpenAddFile(false);
         } catch (error) {
-            console.error('Error uploading file:', error);
+            setOpenAddFile(false);
+            alert(error.response.data.error.message)
+        } finally {
+            setProgress(0);
         }
     };
 
@@ -227,11 +238,20 @@ const CourseDetail = () => {
             formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_PRESET);
 
             try {
-                const response = await axios.post(import.meta.env.VITE_CLOUDINARY_URL, formData);
+                const response = await axios.post(import.meta.env.VITE_CLOUDINARY_URL, formData, {
+                    onUploadProgress: (progressEvent) => {
+                        const { loaded, total } = progressEvent;
+                        const uploadProgress = Math.round((loaded * 100) / total);
+                        setProgress(uploadProgress);
+                    }
+                });
+                console.log("response.....", response)
                 const imageUrl = response.data.secure_url;
                 setFieldValue('preview_image', imageUrl);
             } catch (error) {
-                console.error('Image upload failed:', error);
+                alert(error.response.data.error.message)
+            } finally {
+                setProgress(0);
             }
         }
     };
@@ -277,7 +297,7 @@ const CourseDetail = () => {
     };
 
     const handleAddQuiz = async () => {
-        try{
+        try {
             const quizData = {
                 title: quizTitle,
                 questions: [{
@@ -296,7 +316,7 @@ const CourseDetail = () => {
                 setCorrectAnswer('');
                 setOpenAddQuiz(false);
             }
-        } catch(error){
+        } catch (error) {
             if (error.response && error.response.status === 401) {
                 localStorage.clear();
                 navigate('/');
@@ -306,7 +326,7 @@ const CourseDetail = () => {
         }
     };
 
-    const deleteQuiz = async (quizId) =>{
+    const deleteQuiz = async (quizId) => {
         try {
             const response = await axiosInstance.delete(`/quiz/delete/${id}/${quizId}`);
             if (response.status == 200) {
@@ -444,12 +464,17 @@ const CourseDetail = () => {
                                             </Field>
                                         </FormControl>
 
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(event) => handleImageUpload(event, setFieldValue)}
-                                            style={{ marginTop: '16px' }}
-                                        />
+                                        <div>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(event) => { handleImageUpload(event, setFieldValue) }}
+                                                style={{ marginTop: '16px' }}
+                                            />
+                                            {progress > 0 && (
+                                                <LinearProgress variant="determinate" value={progress} />
+                                            )}
+                                        </div>
 
                                         {values.preview_image && (
                                             <Box mt={2}>
@@ -522,59 +547,59 @@ const CourseDetail = () => {
 
                     {tabValue === 2 && (
                         <Box mt={2} p={2} sx={{ backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                        <Typography variant="h5" gutterBottom>
-                            Quizzes
-                        </Typography>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={() => setOpenAddQuiz(true)}
-                            sx={{ marginBottom: 2 }}
-                        >
-                            Add Quiz
-                        </Button>
-            
-                        <List>
-                            {course.quizzes && course.quizzes.map((quiz) => (
-                                <div key={quiz._id}>
-                                    <ListItem
-                                        sx={{
-                                            backgroundColor: '#fff',
-                                            borderRadius: '4px',
-                                            marginBottom: '8px',
-                                            boxShadow: 1,
-                                            cursor: 'pointer',
-                                        }}
-                                        onClick={() => handleToggle(quiz._id)}
-                                    >
-                                        <ListItemText primary={quiz.title} />
-                                        <IconButton onClick={() => deleteQuiz(quiz._id)} color="secondary">
-                                            Delete
-                                        </IconButton>
-                                        {expandedQuiz === quiz._id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                                    </ListItem>
-                                    <Collapse in={expandedQuiz === quiz._id} timeout="auto" unmountOnExit>
-                                        <Box sx={{ padding: 2 }}>
-                                            {quiz.questions.map((question) => (
-                                                <Box key={question._id} sx={{ marginBottom: 2, padding: 1, backgroundColor: '#e0e0e0', borderRadius: '4px' }}>
-                                                    <Typography variant="body1"><strong>Question:</strong> {question.question}</Typography>
-                                                    <Typography variant="body2"><strong>Options:</strong></Typography>
-                                                    <List>
-                                                        {question.options.map((option, index) => (
-                                                            <ListItem key={index}>
-                                                                <ListItemText primary={option} />
-                                                            </ListItem>
-                                                        ))}
-                                                    </List>
-                                                    <Typography variant="body2" color="green"><strong>Correct Answer:</strong> {question.correctAnswer}</Typography>
-                                                </Box>
-                                            ))}
-                                        </Box>
-                                    </Collapse>
-                                </div>
-                            ))}
-                        </List>
-                    </Box>
+                            <Typography variant="h5" gutterBottom>
+                                Quizzes
+                            </Typography>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setOpenAddQuiz(true)}
+                                sx={{ marginBottom: 2 }}
+                            >
+                                Add Quiz
+                            </Button>
+
+                            <List>
+                                {course.quizzes && course.quizzes.map((quiz) => (
+                                    <div key={quiz._id}>
+                                        <ListItem
+                                            sx={{
+                                                backgroundColor: '#fff',
+                                                borderRadius: '4px',
+                                                marginBottom: '8px',
+                                                boxShadow: 1,
+                                                cursor: 'pointer',
+                                            }}
+                                            onClick={() => handleToggle(quiz._id)}
+                                        >
+                                            <ListItemText primary={quiz.title} />
+                                            <IconButton onClick={() => deleteQuiz(quiz._id)} color="secondary">
+                                                Delete
+                                            </IconButton>
+                                            {expandedQuiz === quiz._id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                        </ListItem>
+                                        <Collapse in={expandedQuiz === quiz._id} timeout="auto" unmountOnExit>
+                                            <Box sx={{ padding: 2 }}>
+                                                {quiz.questions.map((question) => (
+                                                    <Box key={question._id} sx={{ marginBottom: 2, padding: 1, backgroundColor: '#e0e0e0', borderRadius: '4px' }}>
+                                                        <Typography variant="body1"><strong>Question:</strong> {question.question}</Typography>
+                                                        <Typography variant="body2"><strong>Options:</strong></Typography>
+                                                        <List>
+                                                            {question.options.map((option, index) => (
+                                                                <ListItem key={index}>
+                                                                    <ListItemText primary={option} />
+                                                                </ListItem>
+                                                            ))}
+                                                        </List>
+                                                        <Typography variant="body2" color="green"><strong>Correct Answer:</strong> {question.correctAnswer}</Typography>
+                                                    </Box>
+                                                ))}
+                                            </Box>
+                                        </Collapse>
+                                    </div>
+                                ))}
+                            </List>
+                        </Box>
                     )}
 
 
@@ -608,10 +633,13 @@ const CourseDetail = () => {
                                 type="file"
                                 onChange={(e) => setFile(e.target.files[0])}
                             />
+                            {progress > 0 && <LinearProgress variant="determinate" value={progress} />}
                         </DialogContent>
                         <DialogActions>
                             <Button onClick={() => setOpenAddFile(false)} color="primary">Cancel</Button>
-                            <Button onClick={handleUploadFile} color="primary" disabled={!file}>Upload</Button>
+                            <Button onClick={handleUploadFile} color="primary" disabled={!file || progress > 0}>
+                                Upload
+                            </Button>
                         </DialogActions>
                     </Dialog>
 
