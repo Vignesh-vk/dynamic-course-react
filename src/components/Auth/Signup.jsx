@@ -17,7 +17,7 @@ const SignUp = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('student'); // Default role
+    const [role, setRole] = useState('student');
     const [openSnackbar, setOpenSnackbar] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
 
@@ -25,8 +25,8 @@ const SignUp = () => {
         e.preventDefault();
         try {
             const response = await axiosInstance.post('/auth/signup', { name, email, password, role });
-            console.log(response)
             setSnackbarMessage('Sign-up successful!');
+            window.location.reload()
         } catch (error) {
             setSnackbarMessage('Sign-up failed! Please try again.');
         } finally {
